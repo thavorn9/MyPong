@@ -4,7 +4,9 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.RectF;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
@@ -46,7 +48,8 @@ public class PongGame extends SurfaceView implements Runnable {
         mOurHolder = getHolder();
         mPaint = new Paint();
         mBall = new Ball(mScreenX);
-        mBall.update(mFPS);
+        mBat = new Bat(mScreenX, mScreenY);
+
 
 
         startNewGame();
@@ -68,6 +71,7 @@ public class PongGame extends SurfaceView implements Runnable {
             mPaint.setTextSize(mFontSize);
             mCanvas.drawText("Score: " + mScore + " Lives: " + mLives,mFontMargin, mFontSize, mPaint);
             mCanvas.drawRect(mBall.getRect(), mPaint);
+            mCanvas.drawRect(mBat.getRect(), mPaint);
             if (DEBUGGING) {
                 printDebuggingText();
             }
@@ -127,7 +131,72 @@ public class PongGame extends SurfaceView implements Runnable {
         }
     }
     private void update() {
+        mBall.update(mFPS);
+        mBat.update(mFPS);
     }
     private void detectCollisions() {
+
+        // Bottom
+        if(mBall.getRect().bottom > mScreenY){
+            mBall.reverseYVelocity();
+            mLives--;
+            if(mLives == 0){
+                mPaused = true;
+                startNewGame();
+            }
+        }
+// Top
+        if(mBall.getRect().top < 0){
+            mBall.reverseYVelocity();
+        }
+// Left
+        if(mBall.getRect().left < 0){
+            mBall.reverseXVelocity();
+        }
+// Right
+        if(mBall.getRect().right > mScreenX){
+            mBall.reverseXVelocity();
+            mScore -=5;
+        }
+
+        // Has the bat hit the ball?
+        if(RectF.intersects(mBat.getRect(),mBall.getRect())) {
+
+// Realisticish bounce
+            mBall.batBounce(mBat.getRect());
+            mBall.increaseVelocity();
+            mScore +=10;
+
+        }
     }
+    // Handle all the screen touches
+    @Override
+    public boolean onTouchEvent(MotionEvent motionEvent) {
+// This switch block replaces the if statement from the Sub Hunter game
+        switch (motionEvent.getAction() & MotionEvent.ACTION_MASK) {
+// The player has put their finger on the screen
+            case MotionEvent.ACTION_DOWN:
+// If the game was paused unpause
+                mPaused = false;
+// Where did the touch happen
+                if(motionEvent.getX() > mScreenX / 2){
+// On the right hand side
+                    mBat.setMovementState(mBat.RIGHT);
+                }
+                else{
+// On the left hand side
+                    mBat.setMovementState(mBat.LEFT);
+                }
+                break;
+// The player lifted their finger from anywhere on screen.
+// It is possible to create bugs by using multiple fingers.
+            case MotionEvent.ACTION_UP:
+// Stop the bat moving
+                mBat.setMovementState(mBat.STOPPED);
+                break;
+
+        }
+        return true;
+    }
+
 }
